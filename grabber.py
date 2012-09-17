@@ -146,7 +146,7 @@ def splitSongTitle(song):
     logging.debug("Raw: " + song)
     song_stripped = song.replace("\\x00", "").strip()
     song = song_stripped.decode('string_escape', errors='ignore')
-    st_return = song.decode('utf-8', errors='ignore').replace(u'\u0456', u'i')
+    st_return = song.decode('utf-8', errors='ignore').replace(u'\u0456', u'i').replace(u'\u0406', u'i')
     return st_return
 
 if __name__ == '__main__':
