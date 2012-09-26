@@ -5,6 +5,7 @@ import re
 import time
 import traceback
 import logging
+import time
 
 config_txt = "config_grabber.txt"
 save_path = 'd:\\temp\\mp3\\'
@@ -39,6 +40,10 @@ class RequestRadio:
             except:
                 logging.debug(traceback.format_exc())
                 print traceback.format_exc()
+                timeout = 10
+                for time_wait in range(1, timeout):
+                    print("Next attempt in %d s..." % (timeout - time_wait))
+                    time.sleep(1)
 
     def read_data(self, size):
         return self.data.read(size)
@@ -61,6 +66,7 @@ def main():
     file = ""
     current_song = ""
     counter = 0
+    char_len = 0
     init_logging()
     read_config()
     sys.stdout.encoding
@@ -98,13 +104,18 @@ def main():
                         file.close()
                     song_title = splitSongTitle(song)
                     fullpath_file = getFullPath(song_title)
-                    file = open(fullpath_file, 'wb')
+                    if not os.path.isfile(fullpath_file):
+                        file = open(fullpath_file, 'wb')
+                    else:
+                        logging.info("File [%s] already exists, skipping...", fullpath_file)
+                        print "File already exists, skipping it..."
                 else:
                     logging.info("Still the same song...Skipping...")
                 current_song = song
 
         try:
-            file.write(mpstream)
+            if file:
+                file.write(mpstream)
         except Exception:
             logging.debug(traceback.format_exc())
 
