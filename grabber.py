@@ -6,6 +6,7 @@ import time
 import traceback
 import logging
 import time
+import getopt
 
 config_txt = "config_grabber.txt"
 save_path = 'd:\\temp\\mp3\\'
@@ -21,8 +22,14 @@ class RequestRadio:
         self.mpstreeam = ''
         self.icy_int = 0
         self.data = ''
+        self.radio_station_name = ''
+
+    def show_info(self):
+        log_both("Save to dir: {0}".format(save_path))
+        log_both("Opening stream: {0}".format(url))
 
     def send_request(self):
+        global save_path
         isSent = False
         for attempt in range(1, self.attempts):
             msg = "Sending request , attempt %d ..." % (attempt)
@@ -34,15 +41,21 @@ class RequestRadio:
                 opener = urllib2.build_opener()
                 self.data=opener.open(self.request)
                 self.icy_int = int(self.data.headers.getheader("icy-metaint"))
+                radio_name = self.data.headers.getheader("icy-name")
+                self.radio_station_name = strip_spec_symbols(radio_name)
+                log_both("Radiostation name: {0}".format(radio_name))
                 logging.warning("icy_int is %d", self.icy_int)
                 isSent = True
+                set_save_path(self.radio_station_name)
+                self.show_info()
+                createDirIfNeed(save_path)
                 break
             except:
                 logging.debug(traceback.format_exc())
                 print traceback.format_exc()
                 timeout = 10
                 for time_wait in range(1, timeout):
-                    print("Next attempt in %d s..." % (timeout - time_wait))
+                    log_both("Next attempt in {0} s...".format(timeout - time_wait))
                     time.sleep(1)
 
     def read_data(self, size):
@@ -53,28 +66,37 @@ def init_logging():
     datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG)
     logging.info('Starting radio grabber')
 
-def read_config():
-    if os.path.isfile(config_txt):
-        file_conf = open(config_txt, "r")
-        if file_conf:
-            url = file_conf.readline()
-            save_path = file_conf.readline()
-            file_conf.close()
+def log_both(string):
+    logging.info(string)
+    print(string)
 
-def main():
+def set_save_path(radiostation_name):
+    global save_path
+    if radiostation_name not in save_path:
+        save_path = os.path.join(save_path, radiostation_name)
+        log_both("Allocating new folder for stream: {0}".format(save_path))
+
+def main(argv):
+    global url
+    global save_path
     song = ""
     file = ""
     current_song = ""
     counter = 0
     char_len = 0
     init_logging()
-    read_config()
     sys.stdout.encoding
-    logging.info("Save to dir: %s", save_path)
-    print("Save to dir: %s" % save_path)
-    logging.info("Opening stream: %s",  url)
-    print("Opening stream: %s" % url)
-    createDirIfNeed(save_path)
+    try:
+      opts, args = getopt.getopt(argv,"u:s:",["url=","savedir="])
+    except getopt.GetoptError:
+      print 'radiograbebr.py -u <url> -s <save dir>'
+      sys.exit(2)
+    for opt, arg in opts:
+      if opt in ('-u', '-url'):
+        log_both("URL of radio: {0}".format(arg))
+        url = arg
+      elif opt in ("-s", "-savedir"):
+         save_path = arg
 
     requestRadio = RequestRadio(url)
     requestRadio.send_request()
@@ -87,7 +109,7 @@ def main():
         except:
             logging.debug(traceback.format_exc())
         if not char_len:
-            logging.warning("!!! Char len is 0 !!!")
+            logging.warning("!!! Char length is 0 !!!")
             requestRadio.send_request()
             mpstream += requestRadio.read_data(requestRadio.icy_int)
             char_len = requestRadio.read_data(1)
@@ -96,9 +118,9 @@ def main():
             num_byte_length = ord(char_len)
             logging.debug("Length is %d", num_byte_length)
             if num_byte_length > 0:
-                len=num_byte_length * 16
-                logging.info("\nReading %d bytes of metadata\n" , len)
-                song = requestRadio.read_data(len)
+                length=num_byte_length * 16
+                logging.info("\nReading %d bytes of metadata\n" , length)
+                song = requestRadio.read_data(length)
                 if song != current_song:
                     if file:
                         file.close()
@@ -108,9 +130,9 @@ def main():
                         file = open(fullpath_file, 'wb')
                     else:
                         logging.info("File [%s] already exists, skipping...", fullpath_file)
-                        print "File already exists, skipping it..."
+                        print "File already exists, skipping it...\n"
                 else:
-                    logging.info("Still the same song...Skipping...")
+                    logging.info("Still the same song...Skipping...\n")
                 current_song = song
 
         try:
@@ -129,7 +151,6 @@ def createDirIfNeed(path, createNew = True):
         else:
             if path!="":
                 folders.append(path)
-
             break
 
     folders.reverse()
@@ -146,19 +167,22 @@ def getFullPath(song):
     fullpath = os.path.join(save_path, song)
     fullpath_file = ''
     fullpath_file = fullpath + '.mp3'
-    logging.info("Capturing to:\n" + fullpath_file)
-    print("Capturing to \n" + fullpath_file)
+    log_both("Capturing to:\n" + fullpath_file)
     return fullpath_file
 
 def splitSongTitle(song):
     song_no_head = song[13:]
-    s = repr(song_no_head)
-    song =  re.sub(r'["\'@=;&:%$|!~/\.]', '', s)
+    song = strip_spec_symbols(song_no_head)
     logging.debug("Raw: " + song)
     song_stripped = song.replace("\\x00", "").strip()
     song = song_stripped.decode('string_escape', errors='ignore')
     st_return = song.decode('utf-8', errors='ignore').replace(u'\u0456', u'i').replace(u'\u0406', u'i')
     return st_return
 
+def strip_spec_symbols(name):
+    s = repr(name)
+    song =  re.sub(r'["\'@=;&:%$|!~/\.]', '', s)
+    return song
+
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])
