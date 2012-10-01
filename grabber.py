@@ -7,10 +7,11 @@ import traceback
 import logging
 import time
 import getopt
+import random
 
 config_txt = "config_grabber.txt"
 save_path = 'd:\\temp\\mp3\\'
-url = 'http://online-radioroks.tavrmedia.ua:8000/RadioROKS_256'
+url = []
 
 class RequestRadio:
     def __init__(self, url, attempts = 10):
@@ -23,20 +24,22 @@ class RequestRadio:
         self.icy_int = 0
         self.data = ''
         self.radio_station_name = ''
+        self.current_url = ''
 
-    def show_info(self):
+    def show_info(self, current_url):
         log_both("Save to dir: {0}".format(save_path))
-        log_both("Opening stream: {0}".format(url))
+        log_both("Opening stream: {0}".format(current_url))
 
     def send_request(self):
         global save_path
         isSent = False
+        current_url = url[random.randrange(0, len(self.url))]
         for attempt in range(1, self.attempts):
             msg = "Sending request , attempt %d ..." % (attempt)
             print msg
             logging.debug(msg)
             try:
-                self.request = urllib2.Request(url)
+                self.request = urllib2.Request(current_url)
                 self.request.add_header(self.header, self.header_index)
                 opener = urllib2.build_opener()
                 self.data=opener.open(self.request)
@@ -47,7 +50,7 @@ class RequestRadio:
                 logging.warning("icy_int is %d", self.icy_int)
                 isSent = True
                 set_save_path(self.radio_station_name)
-                self.show_info()
+                self.show_info(current_url)
                 createDirIfNeed(save_path)
                 break
             except:
@@ -76,6 +79,36 @@ def set_save_path(radiostation_name):
         save_path = os.path.join(save_path, radiostation_name)
         log_both("Allocating new folder for stream: {0}".format(save_path))
 
+def parse_arguments(argv):
+    global url
+    global save_path
+    url_temp = ''
+    try:
+      opts, args = getopt.getopt(argv,"u:s:",["url=","savedir="])
+    except getopt.GetoptError:
+      print 'radiograbebr.py -u <url> -s <save dir>'
+      sys.exit(2)
+    for opt, arg in opts:
+      if opt in ('-u', '-url'):
+        log_both("URL of radio: {0}".format(arg))
+        url_temp = arg
+        # using default url
+      else:
+        url.append('http://online-radioroks.tavrmedia.ua:8000/RadioROKS_256')
+      if opt in ("-s", "-savedir"):
+         save_path = arg
+    # Process m3u playlist
+    if url_temp[-3:] == 'm3u':
+        file_url = urllib.urlopen(url_temp)
+        txt = file_url.read().split('\n')
+        for line in txt:
+            if "http" in line:
+                log_both("Adding stream url: {0}".format(line))
+                url.append(line)
+    # Save direct stream url
+    else:
+        url.append(url_temp)
+
 def main(argv):
     global url
     global save_path
@@ -86,18 +119,7 @@ def main(argv):
     char_len = 0
     init_logging()
     sys.stdout.encoding
-    try:
-      opts, args = getopt.getopt(argv,"u:s:",["url=","savedir="])
-    except getopt.GetoptError:
-      print 'radiograbebr.py -u <url> -s <save dir>'
-      sys.exit(2)
-    for opt, arg in opts:
-      if opt in ('-u', '-url'):
-        log_both("URL of radio: {0}".format(arg))
-        url = arg
-      elif opt in ("-s", "-savedir"):
-         save_path = arg
-
+    parse_arguments(argv)
     requestRadio = RequestRadio(url)
     requestRadio.send_request()
     while True:
