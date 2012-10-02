@@ -71,6 +71,7 @@ def init_logging():
     datefmt='%m/%d/%Y %I:%M:%S %p', level=logging.DEBUG)
     logging.info('Starting radio grabber')
 
+# Log both to concole and file
 def log_both(string):
     logging.info(string)
     print(string)
