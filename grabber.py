@@ -8,10 +8,12 @@ import logging
 import time
 import getopt
 import random
+import signal
 
 config_txt = "config_grabber.txt"
 save_path = 'd:\\temp\\mp3\\'
 url = []
+isctrl_c_pressed = False
 
 class RequestRadio:
     def __init__(self, url, attempts = 10):
@@ -82,7 +84,8 @@ def set_save_path(radiostation_name):
 def parse_arguments(argv):
     global url
     global save_path
-    url_temp = ''
+    # using default url
+    url_temp = 'http://online-radioroks.tavrmedia.ua:8000/RadioROKS_256'
     try:
       opts, args = getopt.getopt(argv,"u:s:",["url=","savedir="])
     except getopt.GetoptError:
@@ -92,9 +95,6 @@ def parse_arguments(argv):
       if opt in ('-u', '-url'):
         log_both("URL of radio: {0}".format(arg))
         url_temp = arg
-        # using default url
-      else:
-        url.append('http://online-radioroks.tavrmedia.ua:8000/RadioROKS_256')
       if opt in ("-s", "-savedir"):
          save_path = arg
     # Process m3u playlist
@@ -117,12 +117,13 @@ def main(argv):
     current_song = ""
     counter = 0
     char_len = 0
+    signal.signal(signal.SIGINT, signal_handler)
     init_logging()
     sys.stdout.encoding
     parse_arguments(argv)
     requestRadio = RequestRadio(url)
     requestRadio.send_request()
-    while True:
+    while True and not isctrl_c_pressed:
         mpstream = ''
         try:
             mpstream = requestRadio.read_data(requestRadio.icy_int)
@@ -185,7 +186,7 @@ def createDirIfNeed(path, createNew = True):
 
 def getFullPath(song):
     logging.info(song)
-    print("Song: " + song)
+    print(unicode("Song: {0}".format(song)))
     fullpath = os.path.join(save_path, song)
     fullpath_file = ''
     fullpath_file = fullpath + '.mp3'
@@ -205,6 +206,11 @@ def strip_spec_symbols(name):
     s = repr(name)
     song =  re.sub(r'["\'@=;&:%$|!~/\.]', '', s)
     return song
+
+def signal_handler(signal, frame):
+        print 'You pressed Ctrl+C. Exit...'
+        global isctrl_c_pressed
+        isctrl_c_pressed = True
 
 if __name__ == '__main__':
     main(sys.argv[1:])
