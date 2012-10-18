@@ -187,7 +187,7 @@ def createDirIfNeed(path, createNew = True):
 
 def getFullPath(song):
     logging.info(song)
-    print(unicode("Song: {0}".format(song)))
+    print("Song: " + song)
     fullpath = os.path.join(save_path, song)
     fullpath_file = ''
     fullpath_file = fullpath + '.mp3'
